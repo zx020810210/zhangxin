@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Word 格式转换工具</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="libs/jszip.min.js"></script>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>Word 格式转换工具</h1>
+      <p>根据模板文档一键统一目标文档的排版格式（本地运行，不上传文件）。</p>
+    </header>
+
+    <section class="card">
+      <div class="file-group">
+        <label for="templateFile">1. 选择模板文档（.docx）</label>
+        <input id="templateFile" type="file" accept=".docx" />
+      </div>
+
+      <div class="file-group">
+        <label for="targetFile">2. 选择待转换文档（.docx）</label>
+        <input id="targetFile" type="file" accept=".docx" />
+      </div>
+
+      <div class="options">
+        <p>3. 需要同步的格式项</p>
+        <label><input type="checkbox" value="styles" checked /> 字体、字号、段落与行间距</label>
+        <label><input type="checkbox" value="headerFooter" checked /> 页眉、页脚与页码样式</label>
+        <label><input type="checkbox" value="pageLayout" checked /> 页面设置（页边距、纸张、分节设置）</label>
+        <label><input type="checkbox" value="table" checked /> 表格样式、表格标题与图片标题编号</label>
+        <label><input type="checkbox" value="theme" checked /> 主题与编号规则</label>
+      </div>
+
+
+      <div class="format-preview">
+        <p>模板格式识别结果（文字说明）</p>
+        <ul id="formatSummary" class="format-summary">
+          <li>请选择模板文档后自动识别。</li>
+        </ul>
+      </div>
+      <button id="convertBtn" type="button">开始转换并下载</button>
+      <p id="status" class="status" role="status"></p>
+    </section>
+
+    <section class="tips">
+      <h2>说明</h2>
+      <ul>
+        <li>工具在浏览器本地处理文档，不会将文档上传网络。</li>
+        <li>建议模板文档包含完整的样式定义（标题、正文、图表标题、表格样式等）。</li>
+        <li>该工具侧重“格式对齐”，不会修改正文内容。</li>
+      </ul>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
