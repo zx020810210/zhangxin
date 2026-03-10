@@ -37,6 +37,23 @@ async function copyIfExists(fromZip, toZip, path) {
   toZip.file(path, content);
 }
 
+function normalizePartPath(basePath, target) {
+  const baseDir = basePath.split('/').slice(0, -1);
+  const raw = `${baseDir.join('/')}/${target}`.split('/');
+  const normalized = [];
+
+  for (const segment of raw) {
+    if (!segment || segment === '.') continue;
+    if (segment === '..') {
+      normalized.pop();
+      continue;
+    }
+    normalized.push(segment);
+  }
+
+  return normalized.join('/');
+}
+
 async function loadDocxZip(file, label) {
   const arrayBuffer = await file.arrayBuffer();
   let zip;
@@ -95,16 +112,105 @@ function replaceSectPr(templateDocXml, targetDocXml) {
 }
 
 async function syncHeaderFooter(templateZip, targetZip) {
-  const templateFiles = Object.keys(templateZip.files);
-  const headerFooterPaths = templateFiles.filter((path) =>
-    /^word\/(header|footer)\d+\.xml$/.test(path)
-  );
+  const [templateRelsXml, targetRelsXml] = await Promise.all([
+    getTextFromZip(templateZip, 'word/_rels/document.xml.rels'),
+    getTextFromZip(targetZip, 'word/_rels/document.xml.rels')
+  ]);
 
-  for (const path of headerFooterPaths) {
+  if (!templateRelsXml || !targetRelsXml) {
+    throw new Error('缺少 document.xml.rels，无法同步页眉页脚。');
+  }
+
+  const templateRelsDoc = parseXml(templateRelsXml, '模板文档关系');
+  const targetRelsDoc = parseXml(targetRelsXml, '待转换文档关系');
+
+  const templateRels = [...templateRelsDoc.getElementsByTagNameNS('*', 'Relationship')]
+    .filter((item) => /\/(header|footer)$/.test(item.getAttribute('Type') || ''));
+
+  const targetRelsRoot = targetRelsDoc.getElementsByTagNameNS('*', 'Relationships')[0];
+  if (!targetRelsRoot) {
+    throw new Error('待转换文档关系结构异常。');
+  }
+
+  [...targetRelsRoot.getElementsByTagNameNS('*', 'Relationship')]
+    .filter((item) => /\/(header|footer)$/.test(item.getAttribute('Type') || ''))
+    .forEach((item) => item.remove());
+
+  const copiedParts = new Set();
+  for (const rel of templateRels) {
+    const relId = rel.getAttribute('Id');
+    const relType = rel.getAttribute('Type');
+    const relTarget = rel.getAttribute('Target');
+    if (!relId || !relType || !relTarget) continue;
+
+    const conflicted = [...targetRelsRoot.getElementsByTagNameNS('*', 'Relationship')]
+      .find((item) => item.getAttribute('Id') === relId);
+    if (conflicted) conflicted.remove();
+
+    targetRelsRoot.appendChild(targetRelsDoc.importNode(rel, true));
+
+    const partPath = normalizePartPath('word/document.xml', relTarget);
+    copiedParts.add(partPath);
+    await copyIfExists(templateZip, targetZip, partPath);
+
+    const partName = partPath.split('/').pop();
+    await copyIfExists(templateZip, targetZip, `word/_rels/${partName}.rels`);
+  }
+
+  const templateFiles = Object.keys(templateZip.files);
+  const dependentParts = templateFiles.filter((path) =>
+    /^word\/(media|embeddings|drawings)\//.test(path)
+  );
+  for (const path of dependentParts) {
     await copyIfExists(templateZip, targetZip, path);
   }
 
-  await copyIfExists(templateZip, targetZip, 'word/_rels/document.xml.rels');
+  const [templateContentTypesXml, targetContentTypesXml] = await Promise.all([
+    getTextFromZip(templateZip, '[Content_Types].xml'),
+    getTextFromZip(targetZip, '[Content_Types].xml')
+  ]);
+
+  if (templateContentTypesXml && targetContentTypesXml) {
+    const templateContentTypesDoc = parseXml(templateContentTypesXml, '模板内容类型');
+    const targetContentTypesDoc = parseXml(targetContentTypesXml, '待转换内容类型');
+    const templateRoot = templateContentTypesDoc.getElementsByTagName('Types')[0];
+    const targetRoot = targetContentTypesDoc.getElementsByTagName('Types')[0];
+
+    if (templateRoot && targetRoot) {
+      const shouldKeep = (node) => {
+        if (node.localName === 'Override') {
+          const partName = node.getAttribute('PartName') || '';
+          return /\/word\/(header|footer)\d+\.xml$/.test(partName);
+        }
+        if (node.localName === 'Default') {
+          const ext = (node.getAttribute('Extension') || '').toLowerCase();
+          return ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'wmf', 'emf', 'rels', 'xml', 'bin'].includes(ext);
+        }
+        return false;
+      };
+
+      [...templateRoot.children].filter(shouldKeep).forEach((node) => {
+        const key = node.localName === 'Override'
+          ? `${node.localName}:${node.getAttribute('PartName')}`
+          : `${node.localName}:${node.getAttribute('Extension')}`;
+        const exists = [...targetRoot.children].some((targetNode) => {
+          const targetKey = targetNode.localName === 'Override'
+            ? `${targetNode.localName}:${targetNode.getAttribute('PartName')}`
+            : `${targetNode.localName}:${targetNode.getAttribute('Extension')}`;
+          return targetKey === key;
+        });
+        if (!exists) {
+          targetRoot.appendChild(targetContentTypesDoc.importNode(node, true));
+        }
+      });
+    }
+
+    targetZip.file('[Content_Types].xml', new XMLSerializer().serializeToString(targetContentTypesDoc));
+  }
+
+  if (copiedParts.size > 0) {
+    targetZip.file('word/_rels/document.xml.rels', new XMLSerializer().serializeToString(targetRelsDoc));
+  }
 }
 
 async function convertDocx() {
