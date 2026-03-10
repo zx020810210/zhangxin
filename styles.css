@@ -1,0 +1,108 @@
+:root {
+  color-scheme: light;
+  --bg: #f5f7fb;
+  --card: #ffffff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --accent: #2563eb;
+  --border: #dbe3ef;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app {
+  max-width: 840px;
+  margin: 3rem auto;
+  padding: 0 1rem;
+}
+
+header h1 {
+  margin-bottom: 0.4rem;
+}
+
+header p {
+  margin-top: 0;
+  color: var(--muted);
+}
+
+.card,
+.tips {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.25rem;
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.05);
+}
+
+.tips {
+  margin-top: 1rem;
+}
+
+.file-group {
+  margin-bottom: 1rem;
+}
+
+label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+input[type="file"] {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem;
+  background: #fff;
+}
+
+.options p {
+  margin: 0.75rem 0;
+  font-weight: 600;
+}
+
+.options label {
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.5rem;
+}
+
+button {
+  margin-top: 0.7rem;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #fff;
+  padding: 0.7rem 1.1rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #1e4fc3;
+}
+
+.status {
+  min-height: 1.4rem;
+  margin: 0.8rem 0 0;
+  color: var(--muted);
+}
+
+.status.error {
+  color: #b42318;
+}
+
+.status.success {
+  color: #067647;
+}
